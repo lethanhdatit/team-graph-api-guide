@@ -1,15 +1,15 @@
-import { useContext, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button, Spinner } from "@fluentui/react-components";
-import { TeamsFxContext } from "../Context";
-import config from "./lib/config";
+import config from "../appSettings";
 import { Client } from "@microsoft/microsoft-graph-client";
+import { TeamsUserCredential } from "@microsoft/teamsfx";
+import "./Guide.css";
 
 const LSR_SYSTEM_TEAM_ID_KEY = "SYSTEM_TEAM_ID";
 const SSR_ACCESS_TOKEN_KEY = "AccessToken";
 const FIXED_TEAM_NAME = "Fixed Team Name";
 
 export function Guide() {
-  const teamsUserCredential = useContext(TeamsFxContext).teamsUserCredential;
   const [logs, setLogs] = useState<{ n: number; t: string }[]>([]);
   const [graphClient, setGraphClient] = useState<Client | undefined>(undefined);
   const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
@@ -22,39 +22,46 @@ export function Guide() {
   const [channels, setChannels] = useState<object[]>([]);
 
   const log = (text: string) => {
-   setLogs([
-        ...logs,
-        {
-          n:
-            logs && logs.length > 0
-              ? logs.reduce((prev, current) =>
-                  prev.n > current.n ? prev : current
-                ).n + 1
-              : 0,
-          t: text,
-        },
-      ]);
+    setLogs([
+      ...logs,
+      {
+        n:
+          logs && logs.length > 0
+            ? logs.reduce((prev, current) =>
+                prev.n > current.n ? prev : current
+              ).n + 1
+            : 0,
+        t: text,
+      },
+    ]);
   };
-
-  useEffect(() => {
-    console.log(logs);
-  }, [logs]);
 
   useEffect(() => {
     authorize().then();
   }, []);
 
   const authorize = async () => {
-    if (!teamsUserCredential) {
-      throw new Error("TeamsFx SDK is not initialized.");
-    }
-    setGraphClient(undefined);
     log("Authorization is processing ...");
-    await teamsUserCredential!.login(config.apiScopes);
+    setGraphClient(undefined);
+
+    try {
+      const authConfig = {
+        clientId: config.clientId,
+        initiateLoginEndpoint: config.initiateLoginEndpoint,
+        cache: {
+          cacheLocation: "localStorage",
+        },
+      };
+      await new TeamsUserCredential(authConfig)!.login(config.apiScopes);
+    } catch (error) {
+      log("Authorization was failed. Please try again!");
+    }
+
     setupGraphClient();
   };
 
   const setupGraphClient = () => {
+    log("Graph client is initializing ...");
     const accessToken = sessionStorage.getItem(SSR_ACCESS_TOKEN_KEY);
     if (accessToken && accessToken.trim()) {
       try {
@@ -101,6 +108,7 @@ export function Guide() {
             (f: any) => f.displayName === FIXED_TEAM_NAME
           );
         }
+        log(`New team '${FIXED_TEAM_NAME}' was created successfully!`);
         return res;
       }
 
@@ -111,7 +119,7 @@ export function Guide() {
     const team = await handle();
     setTeamId(team.id);
     localStorage.setItem(LSR_SYSTEM_TEAM_ID_KEY, team.id);
-    log(`Success! Team ID: ${team.id}`);
+    log(`Team ID: ${team.id}`);
   };
 
   // GetListAsync in backend
@@ -195,12 +203,11 @@ export function Guide() {
     log("Adding channel is processing ...");
     await handle(channelNameData, memberEmails?.split(","));
     await getListChannels();
-    log(`Adding channel is success`);
+    log(`'${channelNameData}' was added successfully`);
   };
 
-  return (
+  const render = () => (
     <div>
-      <h2>Teams with Graph APIs Guidelines</h2>
       <p>
         <b>Access token:</b>
       </p>
@@ -215,13 +222,37 @@ export function Guide() {
         {teamId}
       </p>
       <p>
-        <b>Channel list:</b>
-        <ul>
-          {
-            channels.map((item: any) => <li>{item.displayName} (ID: {item.id})</li>)
-          }
-        </ul>
+        <b>Team name: </b>
+        {teamId && FIXED_TEAM_NAME}
       </p>
+      <Button
+        appearance="primary"
+        disabled={!graphClient}
+        onClick={getOrCreateTeam}
+      >
+        Get/create Team
+      </Button>
+      <br />
+      <br />
+      <br />
+      <b>Channel list:</b>
+      <ul>
+        {channels.map((item: any, i) => (
+          <li key={`${item.id}-${i}`}>
+            {item.displayName} (ID: {item.id})
+          </li>
+        ))}
+      </ul>
+      <br />
+      <Button
+        appearance="primary"
+        disabled={!graphClient}
+        onClick={async () => await getListChannels()}
+      >
+        Get channels
+      </Button>
+      <br />
+      <br />
       <br />
       <p>
         <b>New channel name: </b>{" "}
@@ -230,6 +261,7 @@ export function Guide() {
             setChannelNameData((e.target as HTMLInputElement).value)
           }
           type="email"
+          style={{ width: "100%" }}
           defaultValue={channelNameData}
         />
       </p>
@@ -240,25 +272,12 @@ export function Guide() {
             setMemberEmails((e.target as HTMLInputElement).value)
           }
           type="email"
+          style={{ width: "100%" }}
           defaultValue={memberEmails}
         />
       </p>
       <br />
       <div className="control">
-        <Button
-          appearance="primary"
-          disabled={!graphClient}
-          onClick={getOrCreateTeam}
-        >
-          Get exist or create new Team
-        </Button>
-        <Button
-          appearance="primary"
-          disabled={!graphClient}
-          onClick={async () => await getListChannels()}
-        >
-          Get list channel
-        </Button>
         <Button
           appearance="primary"
           disabled={!graphClient}
@@ -268,17 +287,39 @@ export function Guide() {
         </Button>
       </div>
       <br />
-      <p>
-        <b>Logs:</b>
-      </p>
-      <div>
-        <pre className="logs">
-          {logs
-            .sort((a, b) => b.n - a.n)
-            .map((l) => (
-              <p key={l.n}>{l.t}</p>
-            ))}
-        </pre>
+      <div className="logs-pannel">
+        <p>
+          <b>Logs hictory:</b>
+        </p>
+        <div>
+          <pre className="logs">
+            {logs
+              .sort((a, b) => b.n - a.n)
+              .map((l, i) => {
+                if (i === 0) {
+                  return (
+                    <p style={{fontSize: '16px'}} key={l.n}>
+                      <b>{l.t}</b>
+                    </p>
+                  );
+                }
+                return <p key={l.n}>{l.t}</p>;
+              })}
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={"light"}>
+      <div className="welcome page">
+        <div className="narrow page-padding">
+          <h1 className="center">Teams with Graph APIs Guidelines</h1>
+          <div className="tabList">
+            <div>{render()}</div>
+          </div>
+        </div>
       </div>
     </div>
   );

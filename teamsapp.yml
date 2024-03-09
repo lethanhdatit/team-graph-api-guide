@@ -133,7 +133,6 @@ deploy:
       REACT_APP_CLIENT_ID: ${{AAD_APP_CLIENT_ID}}
       REACT_APP_START_LOGIN_PAGE_URL: ${{TAB_ENDPOINT}}/auth-start.html
       REACT_APP_FUNC_NAME: getUserProfile
-      REACT_APP_FUNC_ENDPOINT: ${{API_FUNCTION_ENDPOINT}}
   # Deploy bits to Azure Storage Static Website
   - uses: azureStorage/deploy
     with:

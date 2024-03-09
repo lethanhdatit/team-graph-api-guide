@@ -8,7 +8,5 @@
             "schema": {}
         }
     ],
-    "azureFunctions.stopFuncTaskPostDebug": false,
-    "azureFunctions.showProjectWarning": false,
     "csharp.suppressDotnetRestoreNotification": true
 }

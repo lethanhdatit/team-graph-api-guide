@@ -68,8 +68,15 @@ div.error.fixed {
   overflow-wrap: break-word;
 }
 
+.logs-pannel {
+  position: fixed;
+  right: 10vh;
+  top: 12vh;
+}
+
 pre.logs {
-  max-height: 300px;
+  height: 50vh;
+  max-height: 50vh;
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
