@@ -4,7 +4,11 @@
 }
 
 .page-padding {
-  padding: 4rem;
+  padding: 3rem;
+}
+
+.welcome.page {
+  height: 100% ;
 }
 
 .welcome.page > .narrow > img {
@@ -40,12 +44,11 @@
 }
 
 .tabList {
-  align-items: center;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  padding: 30px 20px;
   row-gap: 30px;
+  margin-top: 40px;
 }
 
 pre,
@@ -63,20 +66,33 @@ div.error {
 
 pre.fixed,
 div.error.fixed {
-  height: 200px;
+  height: 100px;
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
 
 .logs-pannel {
   position: fixed;
+  left: 10vh;
+  top: 10vh;
+  width: 40vh;
+}
+
+.authorize-pannel{
+  position: fixed;
   right: 10vh;
-  top: 12vh;
+  top: 10vh;
+  width: 50vh;
+  height: 60vh;
+}
+
+.authorize-pannel .fixed {
+  height: 350px;
 }
 
 pre.logs {
-  height: 50vh;
-  max-height: 50vh;
+  height: 60vh;
+  max-height: 60vh;
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
@@ -113,10 +129,41 @@ pre::-webkit-scrollbar {
   color: red;
 }
 
-.control {
+.channels{
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.channels button{
+  width: 120px;
+  height: 21px;
+}
+
+.channels .section {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.section.column {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.col-left{
+  width: 80%;
+}
+
+.col-right {
   text-align: center;
   display: flex;
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  gap: 8px;
+  align-self: flex-end;
+}
+
+.section.column .col-right {
+  align-self: flex-start;
 }

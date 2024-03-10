@@ -1,3 +1,9 @@
+export interface IAppsettings {
+  initiateLoginEndpoint: string
+  clientId: string
+  apiScopes: string | string[]
+}
+
 const config = {
   initiateLoginEndpoint: process.env.REACT_APP_START_LOGIN_PAGE_URL,
   clientId: process.env.REACT_APP_CLIENT_ID,
@@ -20,6 +26,6 @@ const config = {
     "TeamSettings.ReadWrite.All",
     "User.Read",
     "User.ReadBasic.All"]
-};
+} as IAppsettings;
 
 export default config;

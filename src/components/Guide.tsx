@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button, Spinner } from "@fluentui/react-components";
 import config from "../appSettings";
 import { Client } from "@microsoft/microsoft-graph-client";
-import { TeamsUserCredential } from "@microsoft/teamsfx";
+import * as teamsGraphHelper from "../helpers/teamsGraphHelper";
 import "./Guide.css";
 
 const LSR_SYSTEM_TEAM_ID_KEY = "SYSTEM_TEAM_ID";
@@ -10,6 +10,7 @@ const SSR_ACCESS_TOKEN_KEY = "AccessToken";
 const FIXED_TEAM_NAME = "Fixed Team Name";
 
 export function Guide() {
+  const [loading, setLoading] = useState<boolean>(false);
   const [logs, setLogs] = useState<{ n: number; t: string }[]>([]);
   const [graphClient, setGraphClient] = useState<Client | undefined>(undefined);
   const [accessToken, setAccessToken] = useState<string | undefined>(undefined);
@@ -18,8 +19,129 @@ export function Guide() {
   );
   const [channelNameData, setChannelNameData] =
     useState<string>("Custom channel 01");
+  const [channelIdData, setChannelIdData] = useState<string>();
+  const [postData, setPostData] = useState<string>();
   const [memberEmails, setMemberEmails] = useState<string>("diem@modetour.com");
   const [channels, setChannels] = useState<object[]>([]);
+
+  useEffect(() => {
+    handleAuthorization().then();
+  }, []);
+
+  const handleAuthorization = async () => {
+    log("Authorization is processing ...");
+    setLoading(true)
+    setGraphClient(undefined);
+
+    try {
+      await teamsGraphHelper.authorize(config);
+    } catch (error) {
+      log("Authorization was failed. Please try again!");
+      return;
+    }
+
+    handleInitializationGraphClient();
+    setLoading(false)
+  };
+
+  const handleInitializationGraphClient = () => {
+    log("Graph client is initializing ...");
+
+    const accessToken = sessionStorage.getItem(SSR_ACCESS_TOKEN_KEY);
+    if (accessToken && accessToken.trim()) {
+      try {
+        const client = teamsGraphHelper.initializeGraphClient(accessToken);
+
+        setGraphClient(client);
+        setAccessToken(accessToken);
+
+        log("Graph client ready for use!");
+      } catch (e: any) {
+        log(`Graph client was failed initialization: ex: ${e.message}`);
+      }
+    } else
+      log(
+        "Graph client was failed initialization: 'AccessToken' is required, Let authorize first!"
+      );
+  };
+
+  const handleFetchingTeam = async () => {
+    log("Fetching team is processing ...");
+    setLoading(true)
+    try {
+      const team = await teamsGraphHelper.getOrCreateNewTeam(
+        graphClient,
+        teamId,
+        FIXED_TEAM_NAME
+      );
+      setTeamId(team.id);
+      localStorage.setItem(LSR_SYSTEM_TEAM_ID_KEY, team.id);
+      log(`Team ID: ${team.id}`);
+    } catch (e: any) {
+      log(e.message);
+    }
+    setLoading(false)
+  };
+
+  const handleFetchingChannels = async () => {
+    log("Getting list channel is processing ...");
+    setLoading(true)
+    try {
+      const chn = await teamsGraphHelper.getChannels(graphClient, teamId);
+      if (chn && chn.length > 0) setChannels(chn);
+      log(`Getting list channel is success, (${chn.length}) count`);
+    } catch (e: any) {
+      log(e.message);
+    }
+    setLoading(false)
+  };
+
+  const handleAddingChannel = async () => {
+    log("Adding channel is processing ...");
+    setLoading(true)
+    try {
+      const members = memberEmails
+        ?.split(",")
+        .map((item) => item.trim())
+        .filter((f) => f);
+      await teamsGraphHelper.addChannel(
+        graphClient,
+        teamId,
+        channelNameData,
+        members
+      );
+      log(`'${channelNameData}' was added successfully`);
+      await handleFetchingChannels();
+    } catch (e: any) {
+      log(e.message);
+    }
+    setLoading(false)
+  };
+
+  const handleAddingMembers = async () => {
+    log("Adding members is processing ...");
+    setLoading(true)
+    try {
+      const members = memberEmails
+        ?.split(",")
+        .map((item) => item.trim())
+        .filter((f) => f);
+      await teamsGraphHelper.addMembers(
+        graphClient,
+        teamId,
+        channelIdData,
+        members
+      );
+      log(
+        `(${members.length}) members was added into channel '${channelIdData}'`
+      );
+    } catch (e: any) {
+      log(e.message);
+    }
+    setLoading(false)
+  };
+
+  const handleAddingPost = async () => {};
 
   const log = (text: string) => {
     setLogs([
@@ -36,187 +158,17 @@ export function Guide() {
     ]);
   };
 
-  useEffect(() => {
-    authorize().then();
-  }, []);
-
-  const authorize = async () => {
-    log("Authorization is processing ...");
-    setGraphClient(undefined);
-
-    try {
-      const authConfig = {
-        clientId: config.clientId,
-        initiateLoginEndpoint: config.initiateLoginEndpoint,
-        cache: {
-          cacheLocation: "localStorage",
-        },
-      };
-      await new TeamsUserCredential(authConfig)!.login(config.apiScopes);
-    } catch (error) {
-      log("Authorization was failed. Please try again!");
-    }
-
-    setupGraphClient();
-  };
-
-  const setupGraphClient = () => {
-    log("Graph client is initializing ...");
-    const accessToken = sessionStorage.getItem(SSR_ACCESS_TOKEN_KEY);
-    if (accessToken && accessToken.trim()) {
-      try {
-        const client = Client.init({
-          authProvider: (done) => {
-            done(null, accessToken);
-          },
-        });
-        setGraphClient(client);
-        setAccessToken(accessToken);
-        log("Graph client ready for use!");
-      } catch (error) {
-        log(
-          `Graph client was failed initialization: ex: ${JSON.stringify(error)}`
-        );
-      }
-    } else
-      log(
-        "Graph client was failed initialization: 'AccessToken' is required, Let authorize first!"
-      );
-  };
-
-  // GetTeamAsync in backend
-  const getOrCreateTeam = async () => {
-    if (!graphClient) {
-      log("Graph client was not initialized");
-      return;
-    }
-
-    const handle = async () => {
-      if (!teamId) {
-        const team = {
-          displayName: FIXED_TEAM_NAME,
-          description: FIXED_TEAM_NAME,
-          visibility: "private",
-          "template@odata.bind":
-            "https://graph.microsoft.com/v1.0/teamsTemplates('standard')",
-        };
-
-        let res = await graphClient!.api("/teams").post(team);
-        if (!res?.id) {
-          let joinedTeams = await graphClient!.api("/me/joinedTeams").get();
-          res = joinedTeams?.value?.find(
-            (f: any) => f.displayName === FIXED_TEAM_NAME
-          );
-        }
-        log(`New team '${FIXED_TEAM_NAME}' was created successfully!`);
-        return res;
-      }
-
-      return await graphClient!.api(`/teams/${teamId}`).get();
-    };
-
-    log("Getting or creating team is processing ...");
-    const team = await handle();
-    setTeamId(team.id);
-    localStorage.setItem(LSR_SYSTEM_TEAM_ID_KEY, team.id);
-    log(`Team ID: ${team.id}`);
-  };
-
-  // GetListAsync in backend
-  const getListChannels = async (existedChannelName?: string) => {
-    if (!graphClient) {
-      log("Graph client was not initialized");
-      return;
-    }
-    if (!teamId) {
-      log("No any team existed!");
-      return;
-    }
-
-    const handle = async () => {
-      let res = await graphClient!.api(`/teams/${teamId}/channels`).get();
-      let channels = res.value;
-      if (channels && channels.length > 0) {
-        channels = channels.filter(
-          (f: any) =>
-            f.displayName !== "General" &&
-            (existedChannelName ? f.displayName === existedChannelName : true)
-        );
-      }
-      return channels?.map((item: any) => ({
-        displayName: item.displayName,
-        id: item.id,
-      }));
-    };
-
-    log("Getting list channel is processing ...");
-    const chn = await handle();
-    if (chn && chn.length > 0) setChannels(chn);
-    log(`Getting list channel is success, (${chn.length}) count`);
-    return chn;
-  };
-
-  // AddAsync in backend
-  const addChannel = async () => {
-    if (!graphClient) {
-      log("Graph client was not initialized");
-      return;
-    }
-    if (!teamId) {
-      log("No any team existed!");
-      return;
-    }
-
-    const handle = async (
-      channelName: string | undefined,
-      memberEmails: string[] | undefined
-    ) => {
-      if (!channelName || !channelName.trim()) {
-        log("Channel name is required!");
-        return;
-      }
-
-      const channels = await getListChannels(channelName);
-      if (channels && channels.length > 0) {
-        return channels[0];
-      }
-
-      log("Adding channel is continues to processing ...");
-
-      const channel = {
-        "@odata.type": "#Microsoft.Graph.channel",
-        membershipType: "private",
-        displayName: channelName,
-      };
-
-      const newChannel = await graphClient!
-        .api(`/teams/${teamId}/channels`)
-        .post(channel);
-
-      if (newChannel && memberEmails && memberEmails.length > 0) {
-        //todo add members
-      }
-
-      return newChannel;
-    };
-
-    log("Adding channel is processing ...");
-    await handle(channelNameData, memberEmails?.split(","));
-    await getListChannels();
-    log(`'${channelNameData}' was added successfully`);
-  };
-
   const render = () => (
     <div>
-      <p>
-        <b>Access token:</b>
-      </p>
-      <pre className="fixed">{accessToken}</pre>
-      <Button appearance="primary" onClick={authorize}>
-        Re-Authorize
-      </Button>
-      <br />
-      <br />
+      <div className="authorize-pannel">
+        <p>
+          <b>Access token:</b>
+        </p>
+        <pre className="fixed">{accessToken}</pre>
+        <Button disabled={loading} appearance="primary" onClick={handleAuthorization}>
+          Re-Authorize
+        </Button>
+      </div>
       <p>
         <b>Team ID: </b>
         {teamId}
@@ -227,12 +179,11 @@ export function Guide() {
       </p>
       <Button
         appearance="primary"
-        disabled={!graphClient}
-        onClick={getOrCreateTeam}
+        disabled={!graphClient || loading}
+        onClick={handleFetchingTeam}
       >
-        Get/create Team
+        Get/Create Team
       </Button>
-      <br />
       <br />
       <br />
       <b>Channel list:</b>
@@ -243,48 +194,102 @@ export function Guide() {
           </li>
         ))}
       </ul>
-      <br />
       <Button
         appearance="primary"
-        disabled={!graphClient}
-        onClick={async () => await getListChannels()}
+        disabled={!graphClient || loading}
+        onClick={async () => await handleFetchingChannels()}
       >
         Get channels
       </Button>
       <br />
       <br />
-      <br />
-      <p>
-        <b>New channel name: </b>{" "}
-        <input
-          onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) =>
-            setChannelNameData((e.target as HTMLInputElement).value)
-          }
-          type="email"
-          style={{ width: "100%" }}
-          defaultValue={channelNameData}
-        />
-      </p>
-      <p>
-        <b>Add members: </b>{" "}
+      <div>
+        <b>Members: </b>({" "}
+        <i>
+          separate by <b>","</b>{" "}
+        </i>
+        )
         <input
           onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) =>
             setMemberEmails((e.target as HTMLInputElement).value)
           }
-          type="email"
+          disabled={loading}
+          type="text"
           style={{ width: "100%" }}
           defaultValue={memberEmails}
         />
-      </p>
+      </div>
       <br />
-      <div className="control">
-        <Button
-          appearance="primary"
-          disabled={!graphClient}
-          onClick={async () => await addChannel()}
-        >
-          Add channel
-        </Button>
+      <div className="channels">
+        <div className="section">
+          <div className="col-left">
+            <b>New channel name: </b>
+            <input
+              onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) =>
+                setChannelNameData((e.target as HTMLInputElement).value)
+              }
+              disabled={loading}
+              type="text"
+              style={{ width: "100%" }}
+              defaultValue={channelNameData}
+            />
+          </div>
+          <div className="col-right">
+            <Button
+              appearance="primary"
+              disabled={!graphClient || loading}
+              onClick={async () => await handleAddingChannel()}
+            >
+              Add Channel
+            </Button>
+          </div>
+        </div>
+        <div className="section">
+          <div className="col-left">
+            <b>Channel ID: </b>
+            <input
+              onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) =>
+                setChannelIdData((e.target as HTMLInputElement).value)
+              }
+              disabled={loading}
+              type="text"
+              style={{ width: "100%" }}
+              defaultValue={channelIdData}
+            />
+          </div>
+          <div className="col-right">
+            <Button
+              appearance="primary"
+              disabled={!graphClient || loading}
+              onClick={async () => await handleAddingMembers()}
+            >
+              Add Members
+            </Button>
+          </div>
+        </div>
+        <div className="section column">
+          <div className="col-left">
+            <b>Post content: </b>
+            <textarea
+              onKeyUp={(e: React.KeyboardEvent<HTMLTextAreaElement>) =>
+                setPostData((e.target as HTMLTextAreaElement).value)
+              }
+              disabled={loading}
+              rows={8}
+              style={{ width: "100%" }}
+              defaultValue={postData}
+            />
+          </div>
+          <div className="col-right">
+            <Button
+              appearance="primary"
+              disabled={!graphClient || loading}
+              onClick={async () => await handleAddingPost()}
+            >
+              New Post
+            </Button>
+          </div>
+        </div>
       </div>
       <br />
       <div className="logs-pannel">
@@ -298,7 +303,7 @@ export function Guide() {
               .map((l, i) => {
                 if (i === 0) {
                   return (
-                    <p style={{fontSize: '16px'}} key={l.n}>
+                    <p style={{ fontSize: "16px" }} key={l.n}>
                       <b>{l.t}</b>
                     </p>
                   );
@@ -316,9 +321,7 @@ export function Guide() {
       <div className="welcome page">
         <div className="narrow page-padding">
           <h1 className="center">Teams with Graph APIs Guidelines</h1>
-          <div className="tabList">
-            <div>{render()}</div>
-          </div>
+          <div className="tabList">{render()}</div>
         </div>
       </div>
     </div>
