@@ -30,7 +30,7 @@ export function Guide() {
 
   const handleAuthorization = async () => {
     log("Authorization is processing ...");
-    setLoading(true)
+    setLoading(true);
     setGraphClient(undefined);
 
     try {
@@ -41,7 +41,7 @@ export function Guide() {
     }
 
     handleInitializationGraphClient();
-    setLoading(false)
+    setLoading(false);
   };
 
   const handleInitializationGraphClient = () => {
@@ -67,7 +67,7 @@ export function Guide() {
 
   const handleFetchingTeam = async () => {
     log("Fetching team is processing ...");
-    setLoading(true)
+    setLoading(true);
     try {
       const team = await teamsGraphHelper.getOrCreateNewTeam(
         graphClient,
@@ -80,12 +80,12 @@ export function Guide() {
     } catch (e: any) {
       log(e.message);
     }
-    setLoading(false)
+    setLoading(false);
   };
 
   const handleFetchingChannels = async () => {
     log("Getting list channel is processing ...");
-    setLoading(true)
+    setLoading(true);
     try {
       const chn = await teamsGraphHelper.getChannels(graphClient, teamId);
       if (chn && chn.length > 0) setChannels(chn);
@@ -93,12 +93,12 @@ export function Guide() {
     } catch (e: any) {
       log(e.message);
     }
-    setLoading(false)
+    setLoading(false);
   };
 
   const handleAddingChannel = async () => {
     log("Adding channel is processing ...");
-    setLoading(true)
+    setLoading(true);
     try {
       const members = memberEmails
         ?.split(",")
@@ -115,12 +115,12 @@ export function Guide() {
     } catch (e: any) {
       log(e.message);
     }
-    setLoading(false)
+    setLoading(false);
   };
 
   const handleAddingMembers = async () => {
     log("Adding members is processing ...");
-    setLoading(true)
+    setLoading(true);
     try {
       const members = memberEmails
         ?.split(",")
@@ -138,7 +138,7 @@ export function Guide() {
     } catch (e: any) {
       log(e.message);
     }
-    setLoading(false)
+    setLoading(false);
   };
 
   const handleAddingPost = async () => {};
@@ -165,7 +165,11 @@ export function Guide() {
           <b>Access token:</b>
         </p>
         <pre className="fixed">{accessToken}</pre>
-        <Button disabled={loading} appearance="primary" onClick={handleAuthorization}>
+        <Button
+          disabled={loading}
+          appearance="primary"
+          onClick={handleAuthorization}
+        >
           Re-Authorize
         </Button>
       </div>
@@ -321,7 +325,16 @@ export function Guide() {
       <div className="welcome page">
         <div className="narrow page-padding">
           <h1 className="center">Teams with Graph APIs Guidelines</h1>
-          <div className="tabList">{render()}</div>
+          <div className="tabList">
+            {loading && (
+              <div className="loading">
+                <div className="area">
+                  <Spinner />
+                </div>
+              </div>
+            )}
+            {render()}
+          </div>
         </div>
       </div>
     </div>

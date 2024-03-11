@@ -167,3 +167,21 @@ pre::-webkit-scrollbar {
 .section.column .col-right {
   align-self: flex-start;
 }
+
+.loading {
+  display: flex;
+  position: fixed;
+  background-color: rgba(110, 110, 110, 0.2);  
+  z-index: 9999;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+}
+
+.loading .area {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}

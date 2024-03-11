@@ -199,6 +199,25 @@ const addMembers = async (
   }
 };
 
+
+/**
+ * Fetch list Microsoft user by emails
+ * @param graphClient The graph client instance
+ * @param emails use to fetch MS user info
+ * @returns Array {id, email...}
+ */
+const getUserByEmails = async (
+  graphClient: Client | undefined,
+  emails: string[] | undefined
+) => {
+  if (!graphClient) {
+    throw new Error("Graph client was not initialized");
+  }
+  if (!emails || emails.length === 0) {
+    throw new Error("Email list must not be empty.");
+  }
+};
+
 export {
   authorize,
   initializeGraphClient,
