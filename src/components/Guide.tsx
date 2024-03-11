@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Button, Spinner } from "@fluentui/react-components";
+import { Button, Dropdown, Spinner } from "@fluentui/react-components";
 import config from "../appSettings";
 import { Client } from "@microsoft/microsoft-graph-client";
 import * as teamsGraphHelper from "../helpers/teamsGraphHelper";
+import { ReactionType } from "../helpers/teamsGraphHelper";
 import "./Guide.css";
 
 const LSR_SYSTEM_TEAM_ID_KEY = "SYSTEM_TEAM_ID";
@@ -33,6 +34,9 @@ export function Guide() {
   });
   const [messageIdData, setMessageIdData] = useState<string>();
   const [replyContent, setReplyContent] = useState<string>();
+  const [replyIdData, setReplyIdData] = useState<string | undefined>(undefined);
+  const [reactionType, setReactionType] =
+    useState<keyof typeof ReactionType>("HEART");
 
   useEffect(() => {
     handleAuthorization().then();
@@ -203,7 +207,27 @@ export function Guide() {
         replyContent
       );
       log(`Replying new message into channel '${channelIdData}' successfully`);
-      await handleFetchMessages()
+      await handleFetchMessages();
+    } catch (e: any) {
+      log(e.message);
+    }
+    setLoading(false);
+  };
+
+  const handleReaction = async () => {
+    log(`Reaction is processing ...`);
+    setLoading(true);
+    try {
+      await teamsGraphHelper.setReaction(
+        ReactionType[reactionType],
+        graphClient,
+        teamId,
+        channelIdData,
+        messageIdData,
+        replyIdData
+      );
+      log(`Reaction successfully`);
+      await handleFetchMessages();
     } catch (e: any) {
       log(e.message);
     }
@@ -223,6 +247,26 @@ export function Guide() {
         t: text,
       },
     ]);
+  };
+
+  const summaryArrayByKey = (array: any[], key: string) => {
+    return array.reduce((acc, item) => {
+      acc[item[key]] = (acc[item[key]] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  };
+
+  const mapReactionType = (item: any) => {
+    return Object.keys(item).reduce((acc, key) => {
+      const newKey =
+        ReactionType[key.toUpperCase() as keyof typeof ReactionType];
+      if (newKey) {
+        acc[newKey] = item[key];
+      } else {
+        acc[key] = item[key];
+      }
+      return acc;
+    }, {} as Record<string, number>);
   };
 
   const render = () => (
@@ -261,7 +305,7 @@ export function Guide() {
       <ul>
         {channels.map((item: any, i) => (
           <li key={`${item.id}-${i}`}>
-            (ID: <b>{item.id}</b>): {item.displayName}
+            <b>{item.id}</b>: {item.displayName}
           </li>
         ))}
       </ul>
@@ -275,9 +319,9 @@ export function Guide() {
       <br />
       <br />
       <div>
-        <b>Members: </b>({" "}
+        <b>Members: </b>(
         <i>
-          separate by <b>","</b>{" "}
+          separate by <b>","</b>
         </i>
         )
         <input
@@ -315,6 +359,7 @@ export function Guide() {
             </Button>
           </div>
         </div>
+        <br />
         <div className="section">
           <div className="col-left">
             <b>Channel ID: </b>
@@ -338,9 +383,10 @@ export function Guide() {
             </Button>
           </div>
         </div>
+        <br />
         <div className="section column">
           <div className="col-left">
-            <b>Post content: </b>
+            <b>Message content: </b>
             <i>(text/html)</i>
             <textarea
               onKeyUp={(e: React.KeyboardEvent<HTMLTextAreaElement>) =>
@@ -358,15 +404,44 @@ export function Guide() {
               disabled={!graphClient || loading}
               onClick={async () => await handleAddingPost()}
             >
-              New Post
+              New Message
             </Button>
           </div>
         </div>
+        <br />
         <div className="section column">
           <div className="col-left">
             <b>List messages: </b>
+            <ul>
+              {messages.map((m: any, i) => {
+                return (
+                  <li key={m.id}>
+                    <b>{m.id}</b>-
+                    {JSON.stringify(
+                      mapReactionType(
+                        summaryArrayByKey(m.reactions, "reactionType")
+                      )
+                    )}
+                    :{rawTextHtml(m.body.content)}
+                    <ul>
+                      {m.replies.map((r: any) => (
+                        <li key={r.id}>
+                          <b>{r.id}</b>-
+                          {JSON.stringify(
+                            mapReactionType(
+                              summaryArrayByKey(r.reactions, "reactionType")
+                            )
+                          )}
+                          :{rawTextHtml(r.body.content)}
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                );
+              })}
+            </ul>
             <br />
-            <b>Current page: </b>
+            <b>Page .No: </b>
             <input
               onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) =>
                 setMessagePagination({
@@ -379,7 +454,7 @@ export function Guide() {
               style={{ width: "20%" }}
               defaultValue={messagePagination.current}
             />
-            <span>      </span>
+            <span> </span>
             <b>Page size: </b>
             <input
               onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) =>
@@ -393,15 +468,6 @@ export function Guide() {
               style={{ width: "20%" }}
               defaultValue={messagePagination.size}
             />
-            <ul>
-              {messages.map((m: any, i) => {
-                return (
-                  <li key={m.id}>
-                    (ID: <b>{m.id}</b>): {m.body.content}
-                  </li>
-                );
-              })}
-            </ul>
           </div>
           <div className="col-right">
             <Button
@@ -413,6 +479,7 @@ export function Guide() {
             </Button>
           </div>
         </div>
+        <br />
         <div className="section column">
           <div className="col-left">
             <b>Message ID: </b>
@@ -447,6 +514,46 @@ export function Guide() {
             </Button>
           </div>
         </div>
+        <br />
+        <div className="section column">
+          <div className="col-left">
+            <b>Reply ID: </b>
+            <input
+              onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) =>
+                setReplyIdData((e.target as HTMLInputElement).value)
+              }
+              disabled={loading}
+              type="text"
+              style={{ width: "100%" }}
+              defaultValue={replyIdData}
+            />
+            <b>Reaction type: </b>
+            <select
+              value={reactionType}
+              onChange={(e) => {
+                setReactionType(e.target.value as keyof typeof ReactionType);
+              }}
+            >
+              {Object.keys(ReactionType).map((k: any) => {
+                const type = ReactionType[k as keyof typeof ReactionType];
+                return (
+                  <option key={k} value={k}>
+                    {type}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+          <div className="col-right">
+            <Button
+              appearance="primary"
+              disabled={!graphClient || loading}
+              onClick={async () => await handleReaction()}
+            >
+              Set Reaction
+            </Button>
+          </div>
+        </div>
       </div>
       <br />
       <div className="logs-pannel">
@@ -471,6 +578,10 @@ export function Guide() {
         </div>
       </div>
     </div>
+  );
+
+  const rawTextHtml = (html: string) => (
+    <span dangerouslySetInnerHTML={{ __html: html }} />
   );
 
   return (

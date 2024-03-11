@@ -2,7 +2,15 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import { TeamsUserCredential } from "@microsoft/teamsfx";
 import { IAppsettings } from "../appSettings";
 
+export enum ReactionType {
+  LIKE = "👍",
+  LAUGH = "😆",
+  HEART = "❤️",
+  SURPRISED = "😮",
+}
+
 const DEFAULT_CHANNEL_NAME = "General";
+
 
 /**
  * Authorize the user in config's scopes that may required popup login or silent login.
@@ -391,6 +399,53 @@ const getMessages = async (
 };
 
 /**
+ * Logic is the same with 'SetMessageReactionAsync' in BE
+ * @param reactionType the type of reaction
+ * @param graphClient The graph client instance
+ * @param teamId use to fetch the existed team
+ * @param channelId use to define the channel for processing
+ * @param messageId use to define the message for processing
+ * @param replyId use to define the reply message for processing
+ * @returns void
+ */
+const setReaction = async (
+  reactionType: ReactionType,
+  graphClient: Client | undefined,
+  teamId: string | undefined,
+  channelId: string | undefined,
+  messageId: string | undefined,
+  replyId?: string | undefined
+) => {
+  if (!graphClient) {
+    throw new Error("Graph client was not initialized");
+  }
+  if (!teamId) {
+    throw new Error("No any team be existed.");
+  }
+  if (!channelId) {
+    throw new Error("Reaction require the field 'channelId'");
+  }
+  if (!messageId) {
+    throw new Error("Reaction require the field 'messageId'");
+  }
+  if (!messageId && !replyId) {
+    throw new Error("No target to make the reaction");
+  }
+
+  const payload = {
+    reactionType: String(reactionType),
+  };
+
+  let apiPath = `/teams/${teamId}/channels/${channelId}/messages/${messageId}`;
+  if (replyId) apiPath += `/replies/${replyId}`;
+
+  // https://learn.microsoft.com/en-us/graph/api/chatmessage-setreaction?view=graph-rest-1.0
+  await graphClient.api(`${apiPath}/setReaction`).post(payload);
+};
+
+
+
+/**
  * Fetch list Microsoft user by emails
  * @param graphClient The graph client instance
  * @param emails use to fetch MS user info
@@ -416,6 +471,8 @@ const getUserByEmails = async (graphClient: Client, emails: string[]) => {
   return users;
 };
 
+
+
 const chunkArray = (array: any[], chunkSize: number): any[][] => {
   const chunks: string[][] = [];
   let index = 0;
@@ -428,7 +485,6 @@ const chunkArray = (array: any[], chunkSize: number): any[][] => {
   return chunks;
 };
 
-
 export {
   authorize,
   initializeGraphClient,
@@ -438,5 +494,6 @@ export {
   addMembers,
   addMessage,
   getMessages,
-  replyMessage
+  replyMessage,
+  setReaction,
 };
