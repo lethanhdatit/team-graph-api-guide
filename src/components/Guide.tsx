@@ -7,7 +7,7 @@ import "./Guide.css";
 
 const LSR_SYSTEM_TEAM_ID_KEY = "SYSTEM_TEAM_ID";
 const SSR_ACCESS_TOKEN_KEY = "AccessToken";
-const FIXED_TEAM_NAME = "Fixed Team Name";
+const FIXED_TEAM_NAME = "Fixed Team Name 1";
 
 export function Guide() {
   const [loading, setLoading] = useState<boolean>(false);
@@ -191,7 +191,24 @@ export function Guide() {
     setLoading(false);
   };
 
-  const handleReplyMessage = async () => {};
+  const handleReplyMessage = async () => {
+    log(`Replying message into channel '${channelIdData}' is processing ...`);
+    setLoading(true);
+    try {
+      await teamsGraphHelper.replyMessage(
+        graphClient,
+        teamId,
+        channelIdData,
+        messageIdData,
+        replyContent
+      );
+      log(`Replying new message into channel '${channelIdData}' successfully`);
+      await handleFetchMessages()
+    } catch (e: any) {
+      log(e.message);
+    }
+    setLoading(false);
+  };
 
   const log = (text: string) => {
     setLogs([

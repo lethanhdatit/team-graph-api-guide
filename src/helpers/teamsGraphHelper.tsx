@@ -72,6 +72,7 @@ const getOrCreateNewTeam = async (
         "https://graph.microsoft.com/v1.0/teamsTemplates('standard')",
     };
 
+    // https://learn.microsoft.com/en-us/graph/api/team-post?view=graph-rest-1.0
     let res = await graphClient.api("/teams").post(team);
     if (!res?.id) {
       let joinedTeams = await graphClient.api("/me/joinedTeams").get();
@@ -81,6 +82,7 @@ const getOrCreateNewTeam = async (
   }
 
   // fetch the existed team
+  // https://learn.microsoft.com/en-us/graph/api/team-get?view=graph-rest-1.0&tabs=javascript
   return await graphClient.api(`/teams/${teamId}`).get();
 };
 
@@ -108,6 +110,7 @@ const getChannels = async (
     query += ` and displayName eq '${channelName}'`;
   }
 
+  // https://learn.microsoft.com/en-us/graph/api/channel-list?view=graph-rest-1.0
   let res = await graphClient!
     .api(`/teams/${teamId}/channels`)
     .filter(query)
@@ -158,6 +161,7 @@ const addChannel = async (
     displayName: channelName,
   };
 
+  // https://learn.microsoft.com/en-us/graph/api/channel-post?view=graph-rest-1.0
   const newChannel = await graphClient
     .api(`/teams/${teamId}/channels`)
     .post(channel);
@@ -203,6 +207,7 @@ const addMembers = async (
   );
 
   // Members in team
+  // https://learn.microsoft.com/en-us/graph/api/team-list-members?view=graph-rest-1.0&tabs=javascript
   const res = await graphClient
     .api(`/teams/${teamId}/members`)
     .select(["microsoft.graph.aadUserConversationMember/userId"])
@@ -220,6 +225,7 @@ const addMembers = async (
       "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${id}')`,
     }));
 
+    // https://learn.microsoft.com/en-us/graph/api/conversationmembers-add?view=graph-rest-1.0&tabs=javascript
     await graphClient
       .api(`/teams/${teamId}/members/add`)
       .post({ values: payload });
@@ -233,6 +239,7 @@ const addMembers = async (
       roles: [],
       "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${userId}')`,
     };
+    // https://learn.microsoft.com/en-us/graph/api/channel-post-members?view=graph-rest-1.0&tabs=javascript
     await graphClient
       .api(`/teams/${teamId}/channels/${channelId}/members`)
       .post(payload);
@@ -262,6 +269,9 @@ const addMessage = async (
   if (!channelId) {
     throw new Error("Posting message require the field 'channelId'");
   }
+  if (!content) {
+    throw new Error("Posting message require the field 'content'");
+  }
 
   const payload = {
     body: {
@@ -270,8 +280,54 @@ const addMessage = async (
     },
   };
 
+  // https://learn.microsoft.com/en-us/graph/api/channel-post-messages?view=graph-rest-1.0
   await graphClient
     .api(`/teams/${teamId}/channels/${channelId}/messages`)
+    .post(payload);
+};
+
+/**
+ * Logic is the same with 'AddReplyAsync' in BE
+ * @param graphClient The graph client instance
+ * @param teamId use to fetch the existed team
+ * @param channelId use to define the channel for processing
+ * @param messageId use to define the message for processing
+ * @param content the content of the message, that can be html
+ * @returns void
+ */
+const replyMessage = async (
+  graphClient: Client | undefined,
+  teamId: string | undefined,
+  channelId: string | undefined,
+  messageId: string | undefined,
+  content: string | undefined
+) => {
+  if (!graphClient) {
+    throw new Error("Graph client was not initialized");
+  }
+  if (!teamId) {
+    throw new Error("No any team be existed.");
+  }
+  if (!channelId) {
+    throw new Error("Replying message require the field 'channelId'");
+  }
+  if (!messageId) {
+    throw new Error("Replying message require the field 'messageId'");
+  }
+  if (!content) {
+    throw new Error("Replying message require the field 'content'");
+  }
+
+  const payload = {
+    body: {
+      content: content,
+      contentType: "html",
+    },
+  };
+
+  // https://learn.microsoft.com/en-us/graph/api/chatmessage-post-replies?view=graph-rest-1.0
+  await graphClient
+    .api(`/teams/${teamId}/channels/${channelId}/messages/${messageId}/replies`)
     .post(payload);
 };
 
@@ -282,7 +338,7 @@ const addMessage = async (
  * @param channelId use to define the channel for processing
  * @param currentPage the current index of the pagination
  * @param pageSize the item count for each page of the pagination
- * @returns void
+ * @returns Array { id, messageType, attachments, reactions, replies , body: { content, contentType: 'text' | 'html' }, ...}
  */
 const getMessages = async (
   graphClient: Client | undefined,
@@ -301,15 +357,22 @@ const getMessages = async (
     throw new Error("Posting message require the field 'channelId'");
   }
 
-  // IMPORTANT: server side pagination, issue: messageType can not be filtered in backend so the result may not correct when pagination
+  // IMPORTANT: server side pagination, issue: 'messageType' can not be filtered in server
+  // so the result may not correct when paginate at client side
   // const res = await graphClient
   //   .api(`/teams/${teamId}/channels/${channelId}/messages/delta`)
   //   .skip((currentPage - 1) * pageSize)
   //   .top(pageSize)
   //   .expand(["replies"])
   //   .get();
+  //
+  // let messages = res?.value as any[];
+  // if (messages && messages.length > 0) {
+  //   messages = messages.filter((f: any) => f.messageType === "message");
+  // }
 
-  // IMPORTANT:client side pagination, issue: not optimize performance
+  // IMPORTANT: client side pagination, issue: not optimize performance
+  // https://learn.microsoft.com/en-us/graph/api/chatmessage-delta?view=graph-rest-1.0&tabs=javascript
   const res = await graphClient
     .api(`/teams/${teamId}/channels/${channelId}/messages/delta`)
     .expand(["replies"])
@@ -324,7 +387,7 @@ const getMessages = async (
   }
 
   console.log(messages);
-  return messages as any[];
+  return messages;
 };
 
 /**
@@ -345,6 +408,7 @@ const getUserByEmails = async (graphClient: Client, emails: string[]) => {
       .map((m) => `'${m}'`)
       .join(",")})`;
 
+    // https://learn.microsoft.com/graph/api/intune-mam-user-list?view=graph-rest-1.0
     let res = await graphClient.api("/users").filter(query).get();
     if (res?.value) users = [...users, ...res.value];
   }
@@ -374,4 +438,5 @@ export {
   addMembers,
   addMessage,
   getMessages,
+  replyMessage
 };
