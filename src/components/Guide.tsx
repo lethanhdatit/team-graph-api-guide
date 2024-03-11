@@ -23,6 +23,16 @@ export function Guide() {
   const [postData, setPostData] = useState<string>();
   const [memberEmails, setMemberEmails] = useState<string>("diem@modetour.com");
   const [channels, setChannels] = useState<object[]>([]);
+  const [messages, setMessages] = useState<object[]>([]);
+  const [messagePagination, setMessagePagination] = useState<{
+    current: number;
+    size: number;
+  }>({
+    current: 1,
+    size: 10,
+  });
+  const [messageIdData, setMessageIdData] = useState<string>();
+  const [replyContent, setReplyContent] = useState<string>();
 
   useEffect(() => {
     handleAuthorization().then();
@@ -143,7 +153,45 @@ export function Guide() {
     setLoading(false);
   };
 
-  const handleAddingPost = async () => {};
+  const handleAddingPost = async () => {
+    log(`Posting message into channel '${channelIdData}' is processing ...`);
+    setLoading(true);
+    try {
+      await teamsGraphHelper.addMessage(
+        graphClient,
+        teamId,
+        channelIdData,
+        postData
+      );
+      log(`Posting new message into channel '${channelIdData}' successfully`);
+    } catch (e: any) {
+      log(e.message);
+    }
+    setLoading(false);
+  };
+
+  const handleFetchMessages = async () => {
+    log(`Getting messages for channel '${channelIdData}' is processing ...`);
+    setLoading(true);
+    try {
+      const mess = await teamsGraphHelper.getMessages(
+        graphClient,
+        teamId,
+        channelIdData,
+        messagePagination.current,
+        messagePagination.size
+      );
+      setMessages(mess);
+      log(
+        `Getting messages for channel '${channelIdData}' current: ${messagePagination.current}, size: ${messagePagination.size}, count: ${mess.length}`
+      );
+    } catch (e: any) {
+      log(e.message);
+    }
+    setLoading(false);
+  };
+
+  const handleReplyMessage = async () => {};
 
   const log = (text: string) => {
     setLogs([
@@ -196,7 +244,7 @@ export function Guide() {
       <ul>
         {channels.map((item: any, i) => (
           <li key={`${item.id}-${i}`}>
-            {item.displayName} (ID: {item.id})
+            (ID: <b>{item.id}</b>): {item.displayName}
           </li>
         ))}
       </ul>
@@ -276,12 +324,13 @@ export function Guide() {
         <div className="section column">
           <div className="col-left">
             <b>Post content: </b>
+            <i>(text/html)</i>
             <textarea
               onKeyUp={(e: React.KeyboardEvent<HTMLTextAreaElement>) =>
                 setPostData((e.target as HTMLTextAreaElement).value)
               }
               disabled={loading}
-              rows={8}
+              rows={4}
               style={{ width: "100%" }}
               defaultValue={postData}
             />
@@ -293,6 +342,91 @@ export function Guide() {
               onClick={async () => await handleAddingPost()}
             >
               New Post
+            </Button>
+          </div>
+        </div>
+        <div className="section column">
+          <div className="col-left">
+            <b>List messages: </b>
+            <br />
+            <b>Current page: </b>
+            <input
+              onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) =>
+                setMessagePagination({
+                  ...messagePagination,
+                  ...{ current: Number((e.target as HTMLInputElement).value) },
+                })
+              }
+              disabled={loading}
+              type="number"
+              style={{ width: "20%" }}
+              defaultValue={messagePagination.current}
+            />
+            <span>      </span>
+            <b>Page size: </b>
+            <input
+              onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) =>
+                setMessagePagination({
+                  ...messagePagination,
+                  ...{ size: Number((e.target as HTMLInputElement).value) },
+                })
+              }
+              disabled={loading}
+              type="number"
+              style={{ width: "20%" }}
+              defaultValue={messagePagination.size}
+            />
+            <ul>
+              {messages.map((m: any, i) => {
+                return (
+                  <li key={m.id}>
+                    (ID: <b>{m.id}</b>): {m.body.content}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          <div className="col-right">
+            <Button
+              appearance="primary"
+              disabled={!graphClient || loading}
+              onClick={async () => await handleFetchMessages()}
+            >
+              Get Messages
+            </Button>
+          </div>
+        </div>
+        <div className="section column">
+          <div className="col-left">
+            <b>Message ID: </b>
+            <input
+              onKeyUp={(e: React.KeyboardEvent<HTMLInputElement>) =>
+                setMessageIdData((e.target as HTMLInputElement).value)
+              }
+              disabled={loading}
+              type="text"
+              style={{ width: "100%" }}
+              defaultValue={messageIdData}
+            />
+            <b>Reply content: </b>
+            <i>(text/html)</i>
+            <textarea
+              onKeyUp={(e: React.KeyboardEvent<HTMLTextAreaElement>) =>
+                setReplyContent((e.target as HTMLTextAreaElement).value)
+              }
+              disabled={loading}
+              rows={4}
+              style={{ width: "100%" }}
+              defaultValue={replyContent}
+            />
+          </div>
+          <div className="col-right">
+            <Button
+              appearance="primary"
+              disabled={!graphClient || loading}
+              onClick={async () => await handleReplyMessage()}
+            >
+              Reply message
             </Button>
           </div>
         </div>

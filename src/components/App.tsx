@@ -39,7 +39,6 @@ export default function App() {
                 colorNeutralBackground3: "#eeeeee",
               }
         }
-        style={{ background: tokens.colorNeutralBackground3 }}
       >
         <Router>
           {loading ? (

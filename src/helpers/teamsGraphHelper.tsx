@@ -240,6 +240,94 @@ const addMembers = async (
 };
 
 /**
+ * Logic is the same with 'AddMessageAsync' in BE
+ * @param graphClient The graph client instance
+ * @param teamId use to fetch the existed team
+ * @param channelId use to define the channel for processing
+ * @param content the content of the message, that can be html
+ * @returns void
+ */
+const addMessage = async (
+  graphClient: Client | undefined,
+  teamId: string | undefined,
+  channelId: string | undefined,
+  content: string | undefined
+) => {
+  if (!graphClient) {
+    throw new Error("Graph client was not initialized");
+  }
+  if (!teamId) {
+    throw new Error("No any team be existed.");
+  }
+  if (!channelId) {
+    throw new Error("Posting message require the field 'channelId'");
+  }
+
+  const payload = {
+    body: {
+      content: content,
+      contentType: "html",
+    },
+  };
+
+  await graphClient
+    .api(`/teams/${teamId}/channels/${channelId}/messages`)
+    .post(payload);
+};
+
+/**
+ * Logic is the same with 'GetMessagesAsync' in BE
+ * @param graphClient The graph client instance
+ * @param teamId use to fetch the existed team
+ * @param channelId use to define the channel for processing
+ * @param currentPage the current index of the pagination
+ * @param pageSize the item count for each page of the pagination
+ * @returns void
+ */
+const getMessages = async (
+  graphClient: Client | undefined,
+  teamId: string | undefined,
+  channelId: string | undefined,
+  currentPage: number,
+  pageSize: number
+) => {
+  if (!graphClient) {
+    throw new Error("Graph client was not initialized");
+  }
+  if (!teamId) {
+    throw new Error("No any team be existed.");
+  }
+  if (!channelId) {
+    throw new Error("Posting message require the field 'channelId'");
+  }
+
+  // IMPORTANT: server side pagination, issue: messageType can not be filtered in backend so the result may not correct when pagination
+  // const res = await graphClient
+  //   .api(`/teams/${teamId}/channels/${channelId}/messages/delta`)
+  //   .skip((currentPage - 1) * pageSize)
+  //   .top(pageSize)
+  //   .expand(["replies"])
+  //   .get();
+
+  // IMPORTANT:client side pagination, issue: not optimize performance
+  const res = await graphClient
+    .api(`/teams/${teamId}/channels/${channelId}/messages/delta`)
+    .expand(["replies"])
+    .get();
+
+  let messages = res?.value as any[];
+  if (messages && messages.length > 0) {
+    const skip = (currentPage - 1) * pageSize;
+    messages = messages
+      .filter((f: any) => f.messageType === "message")
+      .slice(skip, skip + pageSize);
+  }
+
+  console.log(messages);
+  return messages as any[];
+};
+
+/**
  * Fetch list Microsoft user by emails
  * @param graphClient The graph client instance
  * @param emails use to fetch MS user info
@@ -276,6 +364,7 @@ const chunkArray = (array: any[], chunkSize: number): any[][] => {
   return chunks;
 };
 
+
 export {
   authorize,
   initializeGraphClient,
@@ -283,4 +372,6 @@ export {
   getChannels,
   addChannel,
   addMembers,
+  addMessage,
+  getMessages,
 };
