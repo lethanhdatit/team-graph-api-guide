@@ -37,6 +37,7 @@ export function Guide() {
       await teamsGraphHelper.authorize(config);
     } catch (error) {
       log("Authorization was failed. Please try again!");
+      setLoading(false);
       return;
     }
 
@@ -46,7 +47,7 @@ export function Guide() {
 
   const handleInitializationGraphClient = () => {
     log("Graph client is initializing ...");
-
+    setLoading(true);
     const accessToken = sessionStorage.getItem(SSR_ACCESS_TOKEN_KEY);
     if (accessToken && accessToken.trim()) {
       try {
@@ -63,6 +64,7 @@ export function Guide() {
       log(
         "Graph client was failed initialization: 'AccessToken' is required, Let authorize first!"
       );
+    setLoading(false);
   };
 
   const handleFetchingTeam = async () => {

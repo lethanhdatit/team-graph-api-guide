@@ -104,11 +104,14 @@ const getChannels = async (
   }
 
   let query = `displayName ne '${DEFAULT_CHANNEL_NAME}' and membershipType eq 'private'`;
-  if(channelName){
-    query +=  ` and displayName eq '${channelName}'`;
+  if (channelName) {
+    query += ` and displayName eq '${channelName}'`;
   }
 
-  let res = await graphClient!.api(`/teams/${teamId}/channels`).filter(query).get();
+  let res = await graphClient!
+    .api(`/teams/${teamId}/channels`)
+    .filter(query)
+    .get();
   let channels = res.value;
   return channels;
 };
@@ -193,8 +196,48 @@ const addMembers = async (
   if (!memberEmails || memberEmails.length === 0) {
     throw new Error("Email member not found.");
   }
-};
 
+  // Microsoft users search by emails
+  const userIds = (await getUserByEmails(graphClient, memberEmails))?.map(
+    (m: any) => m.id as string
+  );
+
+  // Members in team
+  const res = await graphClient
+    .api(`/teams/${teamId}/members`)
+    .select(["microsoft.graph.aadUserConversationMember/userId"])
+    .get();
+  const memberIds = res?.value?.map((m: any) => m.userId) as string[];
+
+  // Users need to add into the team
+  const needAddUserIds = userIds.filter((f) => !memberIds.includes(f));
+
+  // Perform add users into team
+  if (needAddUserIds && needAddUserIds.length > 0) {
+    const payload = needAddUserIds.map((id) => ({
+      "@odata.type": "microsoft.graph.aadUserConversationMember",
+      roles: [],
+      "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${id}')`,
+    }));
+
+    await graphClient
+      .api(`/teams/${teamId}/members/add`)
+      .post({ values: payload });
+  }
+
+  // Perform add each user into channel
+  for (let index = 0; index < userIds.length; index++) {
+    const userId = userIds[index];
+    const payload = {
+      "@odata.type": "#microsoft.graph.aadUserConversationMember",
+      roles: [],
+      "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${userId}')`,
+    };
+    await graphClient
+      .api(`/teams/${teamId}/channels/${channelId}/members`)
+      .post(payload);
+  }
+};
 
 /**
  * Fetch list Microsoft user by emails
@@ -202,17 +245,35 @@ const addMembers = async (
  * @param emails use to fetch MS user info
  * @returns Array {id, email...}
  */
-const getUserByEmails = async (
-  graphClient: Client | undefined,
-  emails: string[] | undefined
-) => {
-  if (!graphClient) {
-    throw new Error("Graph client was not initialized");
+const getUserByEmails = async (graphClient: Client, emails: string[]) => {
+  const maxCountEachTime = 2;
+  let users = [] as object[];
+
+  const processors = chunkArray(emails, maxCountEachTime);
+
+  for (let index = 0; index < processors.length; index++) {
+    // "mail in ('a1@gmail','a2@gmail','a3@gmail')"
+    const query = `mail in (${processors[index]
+      .map((m) => `'${m}'`)
+      .join(",")})`;
+
+    let res = await graphClient.api("/users").filter(query).get();
+    if (res?.value) users = [...users, ...res.value];
   }
-  if (!emails || emails.length === 0) {
-    throw new Error("Email list must not be empty.");
+
+  return users;
+};
+
+const chunkArray = (array: any[], chunkSize: number): any[][] => {
+  const chunks: string[][] = [];
+  let index = 0;
+
+  while (index < array.length) {
+    chunks.push(array.slice(index, index + chunkSize));
+    index += chunkSize;
   }
-  let users = await graphClient.api('/users').get();
+
+  return chunks;
 };
 
 export {
