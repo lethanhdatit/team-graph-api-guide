@@ -82,8 +82,8 @@ div.error.fixed {
   position: fixed;
   right: 10vh;
   top: 10vh;
-  width: 50vh;
-  height: 60vh;
+  width: 25vh;
+  height: 80vh;
 }
 
 .authorize-pannel .fixed {

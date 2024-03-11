@@ -88,7 +88,7 @@ const getOrCreateNewTeam = async (
  * Logic is the same with 'GetListAsync' in BE
  * @param graphClient The graph client instance
  * @param teamId use to fetch the existed team
- * @param channelName use to find the existed team that match the display name
+ * @param channelName use to find the existed channel that match the display name
  * @returns Array { id, displayName }
  */
 const getChannels = async (
@@ -103,17 +103,13 @@ const getChannels = async (
     throw new Error("No any team be existed.");
   }
 
-  let res = await graphClient!.api(`/teams/${teamId}/channels`).get();
-  let channels = res.value;
-  if (channels && channels.length > 0) {
-    // skip the default channel and/or filter by display name
-    channels = channels.filter(
-      (f: any) =>
-        f.displayName !== DEFAULT_CHANNEL_NAME &&
-        (channelName ? f.displayName === channelName : true)
-    );
+  let query = `displayName ne '${DEFAULT_CHANNEL_NAME}' and membershipType eq 'private'`;
+  if(channelName){
+    query +=  ` and displayName eq '${channelName}'`;
   }
 
+  let res = await graphClient!.api(`/teams/${teamId}/channels`).filter(query).get();
+  let channels = res.value;
   return channels;
 };
 
@@ -216,6 +212,7 @@ const getUserByEmails = async (
   if (!emails || emails.length === 0) {
     throw new Error("Email list must not be empty.");
   }
+  let users = await graphClient.api('/users').get();
 };
 
 export {
