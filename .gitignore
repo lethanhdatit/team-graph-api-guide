@@ -16,5 +16,3 @@ appPackage/build
 
 # Dev tool directories
 /devTools/
-package-lock.json
-.vs/graph-api-guide/

@@ -15,12 +15,12 @@
         "outline": "outline.png"
     },
     "name": {
-        "short": "graph-api-guide${{APP_NAME_SUFFIX}}",
-        "full": "Full name for graph-api-guide"
+        "short": "team-graph-api-guide${{APP_NAME_SUFFIX}}",
+        "full": "Full name for team-graph-api-guide"
     },
     "description": {
-        "short": "Short description of graph-api-guide",
-        "full": "Full description of graph-api-guide"
+        "short": "Short description of team-graph-api-guide",
+        "full": "Full description of team-graph-api-guide"
     },
     "accentColor": "#FFFFFF",
     "bots": [],

@@ -12,7 +12,7 @@ provision:
       # based on the definition in manifest. If you don't want to change the
       # name, make sure the name in Microsoft Entra manifest is the same with the name
       # defined here.
-      name: graph-api-guide
+      name: team-graph-api-guide
       # If the value is false, the action will not generate client secret for you
       generateClientSecret: true
       # Authenticate users with a Microsoft work or school account in your
@@ -34,7 +34,7 @@ provision:
   - uses: teamsApp/create
     with:
       # Teams app name
-      name: graph-api-guide${{APP_NAME_SUFFIX}}
+      name: team-graph-api-guide${{APP_NAME_SUFFIX}}
     # Write the information of created resources into environment file for
     # the specified environment variable(s).
     writeToEnvironmentFile:
@@ -98,11 +98,42 @@ provision:
       appId: M365_APP_ID
 
 deploy:
-   # Run npm command
+  # Install development tool(s)
+  - uses: devTool/install
+    with:
+      devCert:
+        trust: true
+      func:
+        version: ~4.0.5174
+        symlinkDir: ./devTools/func
+      dotnet: true
+    # Write the information of installed development tool(s) into environment
+    # file for the specified environment variable(s).
+    writeToEnvironmentFile:
+      sslCertFile: SSL_CRT_FILE
+      sslKeyFile: SSL_KEY_FILE
+      funcPath: FUNC_PATH
+      dotnetPath: DOTNET_PATH
+
+  # Run npm command
   - uses: cli/runNpmCommand
     name: install dependencies
     with:
       args: install --no-audit
+
+  # Run npm command
+  - uses: cli/runNpmCommand
+    name: install dependencies
+    with:
+      workingDirectory: api
+      args: install --no-audit
+
+  # TeamsFx Azure Functions project depends on extra Azure Functions binding extensions for HTTP trigger authorization.
+  - uses: cli/runDotnetCommand
+    with:
+      workingDirectory: api
+      args: build extensions.csproj -o bin --ignore-failed-sources
+      execPath: ${{DOTNET_PATH}}
 
   # Generate runtime environment variables for tab
   - uses: file/createOrUpdateEnvironmentFile
@@ -116,6 +147,8 @@ deploy:
         SSL_KEY_FILE: ${{SSL_KEY_FILE}}
         REACT_APP_CLIENT_ID: ${{REACT_APP_CLIENT_ID}}
         REACT_APP_START_LOGIN_PAGE_URL: ${{TAB_ENDPOINT}}/auth-start.html
+        REACT_APP_FUNC_NAME: ${{FUNC_NAME}}
+        REACT_APP_FUNC_ENDPOINT: ${{FUNC_ENDPOINT}}
 
   # Generate runtime environment variables for backend
   - uses: file/createOrUpdateEnvironmentFile

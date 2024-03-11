@@ -15,7 +15,7 @@ provision:
       # based on the definition in manifest. If you don't want to change the
       # name, make sure the name in Microsoft Entra manifest is the same with the name
       # defined here.
-      name: graph-api-guide
+      name: team-graph-api-guide
       # If the value is false, the action will not generate client secret for you
       generateClientSecret: true
       # Authenticate users with a Microsoft work or school account in your
@@ -37,7 +37,7 @@ provision:
   - uses: teamsApp/create
     with:
       # Teams app name
-      name: graph-api-guide${{APP_NAME_SUFFIX}}
+      name: team-graph-api-guide${{APP_NAME_SUFFIX}}
     # Write the information of created resources into environment file for
     # the specified environment variable(s).
     writeToEnvironmentFile:
@@ -133,6 +133,7 @@ deploy:
       REACT_APP_CLIENT_ID: ${{AAD_APP_CLIENT_ID}}
       REACT_APP_START_LOGIN_PAGE_URL: ${{TAB_ENDPOINT}}/auth-start.html
       REACT_APP_FUNC_NAME: getUserProfile
+      REACT_APP_FUNC_ENDPOINT: ${{API_FUNCTION_ENDPOINT}}
   # Deploy bits to Azure Storage Static Website
   - uses: azureStorage/deploy
     with:
@@ -220,4 +221,4 @@ publish:
     # the specified environment variable(s).
     writeToEnvironmentFile:
       publishedAppId: TEAMS_APP_PUBLISHED_APP_ID
-projectId: cd475635-9bbe-4a26-95c1-1123654ba40f
+projectId: 9eed651d-59e8-4623-a23b-72281a11dab6
