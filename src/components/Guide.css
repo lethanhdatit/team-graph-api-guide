@@ -73,7 +73,7 @@ div.error.fixed {
 
 .logs-pannel {
   position: fixed;
-  left: 10vh;
+  left: 1vh;
   top: 10vh;
   width: 40vh;
 }
