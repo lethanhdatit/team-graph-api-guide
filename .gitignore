@@ -4,7 +4,6 @@
 build
 appPackage/build
 .deployment
-.localConfigs
 
 # dependencies
 /node_modules

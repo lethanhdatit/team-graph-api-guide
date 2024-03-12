@@ -1,0 +1,9 @@
+BROWSER=none
+HTTPS=true
+PORT=53000
+SSL_CRT_FILE=C:/Users/thanh/.fx/certificate/localhost.crt
+SSL_KEY_FILE=C:/Users/thanh/.fx/certificate/localhost.key
+REACT_APP_CLIENT_ID=70b2cc65-7a17-4690-b621-ac9b209e563b
+REACT_APP_START_LOGIN_PAGE_URL=https://localhost:53000/auth-start.html
+REACT_APP_FUNC_NAME=getUserProfile
+REACT_APP_FUNC_ENDPOINT=http://localhost:7071
