@@ -22,7 +22,7 @@ export function Guide() {
     useState<string>("Custom channel 01");
   const [channelIdData, setChannelIdData] = useState<string>();
   const [postData, setPostData] = useState<string>("test attachment");
-  const [memberEmails, setMemberEmails] = useState<string>("diem@modetour.com");
+  const [memberEmails, setMemberEmails] = useState<string>("diem@modetour.com,toandm@modetour.com,sonnv@modetour.com");
   const [channels, setChannels] = useState<object[]>([]);
   const [messages, setMessages] = useState<object[]>([]);
   const [messagePagination, setMessagePagination] = useState<{
@@ -466,6 +466,7 @@ export function Guide() {
                         summaryArrayByKey(m.reactions, "reactionType")
                       )
                     )}
+                    {m.attachments.map((mm: any) => <span><a href={mm.contentUrl}>{mm.name}</a> | </span>)}
                     :{rawTextHtml(m.body.content)}
                     <ul>
                       {m.replies.map((r: any) => (
@@ -476,6 +477,7 @@ export function Guide() {
                               summaryArrayByKey(r.reactions, "reactionType")
                             )
                           )}
+                          {r.attachments.map((mm: any) => <a href={mm.contentUrl}>{mm.name}</a>)}
                           :{rawTextHtml(r.body.content)}
                         </li>
                       ))}

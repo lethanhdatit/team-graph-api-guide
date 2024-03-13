@@ -250,35 +250,6 @@ const addMembers = async (
       .api(`/teams/${teamId}/channels/${channelId}/members`)
       .post(payload);
   }
-
-  // const members = await getTeamMembers(graphClient, teamId);
-  // console.log(members)
-
-  // const { id, parentReference } = await getSharePointFolderUrl(
-  //   graphClient,
-  //   teamId,
-  //   channelId
-  // );
-
-  // const permission = {
-  //   recipients: members.map((item: any) => ({
-  //     "@odata.type": "microsoft.graph.driveRecipient",
-  //     email: item.email,
-  //   })),
-  //   requireSignIn: false,
-  //   sendInvitation: true,
-  //   roles: ["read"]
-  // };
-
-  // await graphClient
-  //   .api(`/drives/${parentReference.driveId}/items/${id}/invite`)
-  //   .post(permission);
-};
-
-const getTeamMembers = async (graphClient: Client, teamId: string) => {
-  return (await graphClient
-    .api(`/teams/${teamId}/members`)
-    .get())?.value;
 };
 
 /**
@@ -562,6 +533,10 @@ const getUserByEmails = async (graphClient: Client, emails: string[]) => {
   return users;
 };
 
+const getTeamMembers = async (graphClient: Client, teamId: string) => {
+  return (await graphClient.api(`/teams/${teamId}/members`).get())?.value;
+};
+
 const uploadFileToSharePointList = async (
   graphClient: Client | undefined,
   teamId: string | undefined,
@@ -582,22 +557,49 @@ const uploadFileToSharePointList = async (
     throw new Error("'driveId' is required");
   }
 
-  const SSR_ACCESS_TOKEN_KEY = "AccessToken";
-  const accessToken = sessionStorage.getItem(SSR_ACCESS_TOKEN_KEY);
   const fileName =
     fileContent.name ??
     (fileContent as any).content.name ??
     `unknown-file-name-${uuidv4()}`;
 
-  const uploadUrl = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${parentId}:/${fileName}:/content`;
+  const response = await graphClient
+    .api(`/drives/${driveId}/items/${parentId}:/${fileName}:/content`)
+    .put(fileContent);
 
-  const response = await axios.put(uploadUrl, fileContent, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "text/plain",
-    },
-  });
-  return response.data;
+  await shareResourceToMembers(
+    graphClient,
+    teamId,
+    driveId,
+    parentId,
+    fileName
+  );
+
+  return response;
+};
+
+const shareResourceToMembers = async (
+  graphClient: Client,
+  teamId: string,
+  driveId: string,
+  parentId: string,
+  fileName: string
+) => {
+  const members = await getTeamMembers(graphClient, teamId);
+  console.log(members);
+
+  const permission = {
+    recipients: members.map((item: any) => ({
+      email: item.email,
+      "@odata.type": "microsoft.graph.driveRecipient",
+    })),
+    roles: ["read"],
+    sendInvitation: false,
+    requireSignIn: true,
+  };
+
+  await graphClient
+    .api(`/drives/${driveId}/items/${parentId}:/${fileName}:/invite`)
+    .post(permission);
 };
 
 const getSharePointFolderUrl = async (
