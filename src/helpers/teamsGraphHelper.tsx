@@ -252,7 +252,8 @@ const addMembers = async (
   }
 
   // Share sharepoint folder to all members in team
-  await shareResourceToMembers(graphClient, teamId, channelId);
+  const log = await shareResourceToMembers(graphClient, teamId, channelId);
+  console.log(log);
 };
 
 /**
@@ -294,7 +295,7 @@ const addMessage = async (
         files[index]
       );
       if (!uploadResult) continue;
-      console.log(uploadResult)
+      console.log(uploadResult);
       attachments.push({
         id: uuidv4(),
         name: uploadResult.name,
@@ -534,11 +535,11 @@ const uploadFileToSharePointList = async (
   channelId: string,
   fileContent: File
 ) => {
-  const { driveId, parentId } = await getSharePointFolderUrl(
-    graphClient,
-    teamId,
-    channelId
-  );
+  const res = await getSharePointFolderUrl(graphClient, teamId, channelId);
+
+  if (res === 0 || res === -1) {
+    return;
+  }
 
   const fileName =
     fileContent.name ??
@@ -546,27 +547,8 @@ const uploadFileToSharePointList = async (
     `unknown-file-name-${uuidv4()}`;
 
   const response = await graphClient
-    .api(`/drives/${driveId}/items/${parentId}:/${fileName}:/content`)
+    .api(`/drives/${res.driveId}/items/${res.parentId}:/${fileName}:/content`)
     .put(fileContent);
-
-  return response;
-};
-
-const deleteFileToSharePointList = async (
-  graphClient: Client,
-  teamId: string,
-  channelId: string,
-  fileUploadedId: string,
-) => {
-  const { driveId } = await getSharePointFolderUrl(
-    graphClient,
-    teamId,
-    channelId
-  );
-
-  const response = await graphClient
-    .api(`/drives/${driveId}/items/${fileUploadedId}`)
-    .delete();
 
   return response;
 };
@@ -575,26 +557,44 @@ const shareResourceToMembers = async (
   graphClient: Client,
   teamId: string,
   channelId: string,
+  interval: number = 5000
 ) => {
-  const { driveId, parentId } = await getSharePointFolderUrl(
-    graphClient,
-    teamId,
-    channelId
-  );
-  
-  const members = await getTeamMembers(graphClient, teamId);
+  const res = await getSharePointFolderUrl(graphClient, teamId, channelId);
 
-  const permission = {
-    recipients: members.map((item: any) => ({
-      email: item.email,
-      "@odata.type": "microsoft.graph.driveRecipient",
-    })),
-    roles: ["read"],
-    sendInvitation: false,
-    requireSignIn: true,
-  };
+  // Folder location for this channel is not ready yet, please try again later
+  // Wait to re-run
+  if (res === 0) {
+    console.log("retry");
+    setTimeout(async () => {
+      await shareResourceToMembers(
+        graphClient,
+        teamId,
+        channelId,
+        interval + 5000
+      );
+    }, interval);
+  }
+  // end of end error
+  else if(res === -1){
+    return
+  }
+  else {
+    const members = await getTeamMembers(graphClient, teamId);
 
-  return await graphClient.api(`/drives/${driveId}/items/${parentId}/invite`).post(permission);
+    const permission = {
+      recipients: members.map((item: any) => ({
+        email: item.email,
+        "@odata.type": "microsoft.graph.driveRecipient",
+      })),
+      roles: ["read"],
+      sendInvitation: false,
+      requireSignIn: true,
+    };
+
+    return await graphClient
+      .api(`/drives/${res.driveId}/items/${res.parentId}/invite`)
+      .post(permission);
+  }
 };
 
 const getSharePointFolderUrl = async (
@@ -602,15 +602,23 @@ const getSharePointFolderUrl = async (
   teamId: string,
   channelId: string
 ) => {
-  const res = await graphClient
-    .api(`/teams/${teamId}/channels/${channelId}/filesFolder`)
-    .get();
+  try {
+    const res = await graphClient
+      .api(`/teams/${teamId}/channels/${channelId}/filesFolder`)
+      .get();
 
-  return {
-    parentId: res.id,
-    driveId: res.parentReference.driveId,
-    webUrl: res.webUrl,
-  };
+    return {
+      parentId: res.id,
+      driveId: res.parentReference.driveId,
+      webUrl: res.webUrl,
+    };
+  } catch (e: any) {
+    console.log(e);
+    if (e.statusCode === 404 && e.message.includes("channel is not ready yet"))
+      return 0;
+    else 
+      return -1;
+  }
 };
 
 const chunkArray = (array: any[], chunkSize: number): any[][] => {
@@ -636,5 +644,4 @@ export {
   getMessages,
   replyMessage,
   setReaction,
-  deleteFileToSharePointList
 };
