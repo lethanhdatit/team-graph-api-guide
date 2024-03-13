@@ -250,6 +250,13 @@ const addMembers = async (
       .api(`/teams/${teamId}/channels/${channelId}/members`)
       .post(payload);
   }
+
+  const { driveId, parentId } = await getSharePointFolderUrl(
+    graphClient,
+    teamId,
+    channelId
+  );
+  await shareResourceToMembers(graphClient, teamId, driveId, parentId);
 };
 
 /**
@@ -531,7 +538,7 @@ const uploadFileToSharePointList = async (
   channelId: string,
   fileContent: File
 ) => {
-  const { driveId, parentId  } = await getSharePointFolderUrl(
+  const { driveId, parentId } = await getSharePointFolderUrl(
     graphClient,
     teamId,
     channelId
@@ -562,7 +569,7 @@ const shareResourceToMembers = async (
   teamId: string,
   driveId: string,
   parentId: string,
-  fileName: string
+  fileName?: string | undefined
 ) => {
   const members = await getTeamMembers(graphClient, teamId);
   console.log(members);
@@ -577,9 +584,10 @@ const shareResourceToMembers = async (
     requireSignIn: true,
   };
 
-  await graphClient
-    .api(`/drives/${driveId}/items/${parentId}:/${fileName}:/invite`)
-    .post(permission);
+  let apiEndpoint = `/drives/${driveId}/items/${parentId}`;
+  if (fileName) apiEndpoint += `:/${fileName}`;
+
+  return await graphClient.api(`${apiEndpoint}/invite`).post(permission);
 };
 
 const getSharePointFolderUrl = async (
@@ -595,7 +603,7 @@ const getSharePointFolderUrl = async (
     parentId: res.id,
     driveId: res.parentReference.driveId,
     webUrl: res.webUrl,
-  }
+  };
 };
 
 const chunkArray = (array: any[], chunkSize: number): any[][] => {
