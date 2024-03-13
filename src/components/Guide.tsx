@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { Button, Dropdown, Spinner } from "@fluentui/react-components";
-import config from "../appSettings";
+import { Button, Spinner } from "@fluentui/react-components";
 import { Client } from "@microsoft/microsoft-graph-client";
+import config from "../appSettings";
 import * as teamsGraphHelper from "../helpers/teamsGraphHelper";
 import { ReactionType } from "../helpers/teamsGraphHelper";
 import "./Guide.css";
@@ -21,7 +21,7 @@ export function Guide() {
   const [channelNameData, setChannelNameData] =
     useState<string>("Custom channel 01");
   const [channelIdData, setChannelIdData] = useState<string>();
-  const [postData, setPostData] = useState<string>();
+  const [postData, setPostData] = useState<string>("test attachment");
   const [memberEmails, setMemberEmails] = useState<string>("diem@modetour.com");
   const [channels, setChannels] = useState<object[]>([]);
   const [messages, setMessages] = useState<object[]>([]);
@@ -33,14 +33,26 @@ export function Guide() {
     size: 10,
   });
   const [messageIdData, setMessageIdData] = useState<string>();
+  const [messageAttachmentFiles, setMessageAttachmentFiles] =
+    useState<File[] | null | undefined>();
+  const [replyAttachmentFiles, setReplyAttachmentFiles] = useState<File[] | null | undefined>();
   const [replyContent, setReplyContent] = useState<string>();
   const [replyIdData, setReplyIdData] = useState<string | undefined>(undefined);
   const [reactionType, setReactionType] =
     useState<keyof typeof ReactionType>("HEART");
 
   useEffect(() => {
-    handleAuthorization().then();
+    const stretagy = async() => {
+      await handleAuthorization()
+    }
+    stretagy()
   }, []);
+
+  useEffect(() => {
+    if(channels && channels.length > 0){
+      setChannelIdData((channels[0] as any).id)
+    }
+  }, [channels]);
 
   const handleAuthorization = async () => {
     log("Authorization is processing ...");
@@ -56,6 +68,8 @@ export function Guide() {
     }
 
     handleInitializationGraphClient();
+    await handleFetchingTeam()
+    await handleFetchingChannels()
     setLoading(false);
   };
 
@@ -161,11 +175,13 @@ export function Guide() {
     log(`Posting message into channel '${channelIdData}' is processing ...`);
     setLoading(true);
     try {
+
       await teamsGraphHelper.addMessage(
         graphClient,
         teamId,
         channelIdData,
-        postData
+        postData,
+        messageAttachmentFiles
       );
       log(`Posting new message into channel '${channelIdData}' successfully`);
     } catch (e: any) {
@@ -204,7 +220,8 @@ export function Guide() {
         teamId,
         channelIdData,
         messageIdData,
-        replyContent
+        replyContent,
+        replyAttachmentFiles
       );
       log(`Replying new message into channel '${channelIdData}' successfully`);
       await handleFetchMessages();
@@ -268,6 +285,21 @@ export function Guide() {
       return acc;
     }, {} as Record<string, number>);
   };
+
+  const readFileAsBase64 = (file: File, callBack: (base64: string | null) => void) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+        const base64String = reader.result?.toString().split(',')[1] || null;
+        callBack(base64String);
+    };
+
+    reader.onerror = () => {
+        console.error('Error occurred while reading file.');
+    };
+
+    reader.readAsDataURL(file);
+};
 
   const render = () => (
     <div>
@@ -370,7 +402,7 @@ export function Guide() {
               disabled={loading}
               type="text"
               style={{ width: "100%" }}
-              defaultValue={channelIdData}
+              defaultValue={channelIdData ?? (channels && channels.length > 0 ? (channels[0] as any).id : "")}
             />
           </div>
           <div className="col-right">
@@ -398,6 +430,18 @@ export function Guide() {
               defaultValue={postData}
             />
           </div>
+          <input
+            disabled={loading}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              const selectedFiles = e.target.files && Array.from(e.target.files);
+              if (selectedFiles) {
+                setMessageAttachmentFiles(selectedFiles)
+              }
+            }}
+            multiple
+            type="file"
+            style={{ width: "100%" }}
+          />
           <div className="col-right">
             <Button
               appearance="primary"
@@ -502,6 +546,18 @@ export function Guide() {
               rows={4}
               style={{ width: "100%" }}
               defaultValue={replyContent}
+            />
+            <input
+              disabled={loading}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const selectedFiles = e.target.files && Array.from(e.target.files);
+                if (selectedFiles) {
+                  setReplyAttachmentFiles(selectedFiles)
+                }
+              }}
+              multiple 
+              type="file"
+              style={{ width: "100%" }}
             />
           </div>
           <div className="col-right">

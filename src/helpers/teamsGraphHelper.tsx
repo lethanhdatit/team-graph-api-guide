@@ -1,6 +1,8 @@
 import { Client } from "@microsoft/microsoft-graph-client";
 import { TeamsUserCredential } from "@microsoft/teamsfx";
+import { v4 as uuidv4 } from "uuid";
 import { IAppsettings } from "../appSettings";
+import axios from "axios";
 
 export enum ReactionType {
   LIKE = "👍",
@@ -10,7 +12,6 @@ export enum ReactionType {
 }
 
 const DEFAULT_CHANNEL_NAME = "General";
-
 
 /**
  * Authorize the user in config's scopes that may required popup login or silent login.
@@ -216,11 +217,8 @@ const addMembers = async (
 
   // Members in team
   // https://learn.microsoft.com/en-us/graph/api/team-list-members?view=graph-rest-1.0&tabs=javascript
-  const res = await graphClient
-    .api(`/teams/${teamId}/members`)
-    .select(["microsoft.graph.aadUserConversationMember/userId"])
-    .get();
-  const memberIds = res?.value?.map((m: any) => m.userId) as string[];
+  const res = await getTeamMembers(graphClient, teamId);
+  const memberIds = res?.map((m: any) => m.userId) as string[];
 
   // Users need to add into the team
   const needAddUserIds = userIds.filter((f) => !memberIds.includes(f));
@@ -252,6 +250,35 @@ const addMembers = async (
       .api(`/teams/${teamId}/channels/${channelId}/members`)
       .post(payload);
   }
+
+  // const members = await getTeamMembers(graphClient, teamId);
+  // console.log(members)
+
+  // const { id, parentReference } = await getSharePointFolderUrl(
+  //   graphClient,
+  //   teamId,
+  //   channelId
+  // );
+
+  // const permission = {
+  //   recipients: members.map((item: any) => ({
+  //     "@odata.type": "microsoft.graph.driveRecipient",
+  //     email: item.email,
+  //   })),
+  //   requireSignIn: false,
+  //   sendInvitation: true,
+  //   roles: ["read"]
+  // };
+
+  // await graphClient
+  //   .api(`/drives/${parentReference.driveId}/items/${id}/invite`)
+  //   .post(permission);
+};
+
+const getTeamMembers = async (graphClient: Client, teamId: string) => {
+  return (await graphClient
+    .api(`/teams/${teamId}/members`)
+    .get())?.value;
 };
 
 /**
@@ -266,7 +293,8 @@ const addMessage = async (
   graphClient: Client | undefined,
   teamId: string | undefined,
   channelId: string | undefined,
-  content: string | undefined
+  content: string | undefined,
+  files?: File[] | null | undefined
 ) => {
   if (!graphClient) {
     throw new Error("Graph client was not initialized");
@@ -281,11 +309,43 @@ const addMessage = async (
     throw new Error("Posting message require the field 'content'");
   }
 
-  const payload = {
+  let attachments = [] as any[];
+  if (files && files.length > 0) {
+    const { id, parentReference } = await getSharePointFolderUrl(
+      graphClient,
+      teamId,
+      channelId
+    );
+
+    for (let index = 0; index < files.length; index++) {
+      const uploadResult = await uploadFileToSharePointList(
+        graphClient,
+        teamId,
+        parentReference.driveId,
+        id,
+        files[index]
+      );
+      if (!uploadResult) continue;
+
+      attachments.push({
+        id: uuidv4(),
+        name: uploadResult.name,
+        contentType: "reference",
+        contentUrl: uploadResult.webUrl,
+      });
+    }
+  }
+
+  let suffixAttachments = attachments
+    .map((m: any) => `<attachment id="${m.id}"></attachment>`)
+    .join("");
+
+  let payload = {
     body: {
-      content: content,
+      content: content + suffixAttachments,
       contentType: "html",
     },
+    attachments: attachments,
   };
 
   // https://learn.microsoft.com/en-us/graph/api/channel-post-messages?view=graph-rest-1.0
@@ -308,7 +368,8 @@ const replyMessage = async (
   teamId: string | undefined,
   channelId: string | undefined,
   messageId: string | undefined,
-  content: string | undefined
+  content: string | undefined,
+  files?: File[] | null | undefined
 ) => {
   if (!graphClient) {
     throw new Error("Graph client was not initialized");
@@ -326,11 +387,43 @@ const replyMessage = async (
     throw new Error("Replying message require the field 'content'");
   }
 
+  let attachments = [] as any[];
+  if (files && files.length > 0) {
+    const { id, parentReference } = await getSharePointFolderUrl(
+      graphClient,
+      teamId,
+      channelId
+    );
+
+    for (let index = 0; index < files.length; index++) {
+      const uploadResult = await uploadFileToSharePointList(
+        graphClient,
+        teamId,
+        parentReference.driveId,
+        id,
+        files[index]
+      );
+      if (!uploadResult) continue;
+
+      attachments.push({
+        id: uuidv4(),
+        name: uploadResult.name,
+        contentType: "reference",
+        contentUrl: uploadResult.webUrl,
+      });
+    }
+  }
+
+  let suffixAttachments = attachments
+    .map((m: any) => `<attachment id="${m.id}"></attachment>`)
+    .join("");
+
   const payload = {
     body: {
-      content: content,
+      content: content + suffixAttachments,
       contentType: "html",
     },
+    attachments: attachments,
   };
 
   // https://learn.microsoft.com/en-us/graph/api/chatmessage-post-replies?view=graph-rest-1.0
@@ -443,8 +536,6 @@ const setReaction = async (
   await graphClient.api(`${apiPath}/setReaction`).post(payload);
 };
 
-
-
 /**
  * Fetch list Microsoft user by emails
  * @param graphClient The graph client instance
@@ -471,7 +562,76 @@ const getUserByEmails = async (graphClient: Client, emails: string[]) => {
   return users;
 };
 
+const uploadFileToSharePointList = async (
+  graphClient: Client | undefined,
+  teamId: string | undefined,
+  driveId: string | undefined,
+  parentId: string | undefined,
+  fileContent: File
+) => {
+  if (!graphClient) {
+    throw new Error("Graph client was not initialized");
+  }
+  if (!teamId) {
+    throw new Error("No any team be existed.");
+  }
+  if (!driveId) {
+    throw new Error("'driveId' is required");
+  }
+  if (!parentId) {
+    throw new Error("'driveId' is required");
+  }
 
+  const SSR_ACCESS_TOKEN_KEY = "AccessToken";
+  const accessToken = sessionStorage.getItem(SSR_ACCESS_TOKEN_KEY);
+  const fileName =
+    fileContent.name ??
+    (fileContent as any).content.name ??
+    `unknown-file-name-${uuidv4()}`;
+
+  const uploadUrl = `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${parentId}:/${fileName}:/content`;
+
+  const response = await axios.put(uploadUrl, fileContent, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "text/plain",
+    },
+  });
+  return response.data;
+};
+
+const getSharePointFolderUrl = async (
+  graphClient: Client | undefined,
+  teamId: string | undefined,
+  channelId: string | undefined
+) => {
+  if (!graphClient) {
+    throw new Error("Graph client was not initialized");
+  }
+  if (!teamId) {
+    throw new Error("No any team be existed.");
+  }
+  if (!channelId) {
+    throw new Error("'channelId' is required");
+  }
+
+  const res = await graphClient
+    .api(`/teams/${teamId}/channels/${channelId}/filesFolder`)
+    .get();
+
+  return {
+    id: res.id,
+    webUrl: res.webUrl,
+    parentReference: res.parentReference,
+  } as {
+    id: string;
+    webUrl: string;
+    parentReference: {
+      driveId: string;
+      driveType: string;
+    };
+  };
+};
 
 const chunkArray = (array: any[], chunkSize: number): any[][] => {
   const chunks: string[][] = [];
