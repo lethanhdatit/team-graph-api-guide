@@ -557,7 +557,7 @@ const shareResourceToMembers = async (
   graphClient: Client,
   teamId: string,
   channelId: string,
-  interval: number = 5000
+  retryInterval: number = 2000
 ) => {
   const res = await getSharePointFolderUrl(graphClient, teamId, channelId);
 
@@ -569,13 +569,13 @@ const shareResourceToMembers = async (
       await shareResourceToMembers(
         graphClient,
         teamId,
-        channelId,
-        5000
+        channelId
       );
-    }, interval);
+    }, retryInterval);
   }
   // end of end error
   else if(res === -1){
+    console.log("End of end error");
     return
   }
   else {
