@@ -570,7 +570,7 @@ const shareResourceToMembers = async (
         graphClient,
         teamId,
         channelId,
-        interval + 5000
+        5000
       );
     }, interval);
   }
@@ -590,7 +590,7 @@ const shareResourceToMembers = async (
       sendInvitation: false,
       requireSignIn: true,
     };
-
+    console.log("done");
     return await graphClient
       .api(`/drives/${res.driveId}/items/${res.parentId}/invite`)
       .post(permission);
@@ -613,7 +613,7 @@ const getSharePointFolderUrl = async (
       webUrl: res.webUrl,
     };
   } catch (e: any) {
-    console.log(e);
+    console.log(e.message);
     if (e.statusCode === 404 && e.message.includes("channel is not ready yet"))
       return 0;
     else 
