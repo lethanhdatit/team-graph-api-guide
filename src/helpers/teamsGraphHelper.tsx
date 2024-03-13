@@ -282,18 +282,11 @@ const addMessage = async (
 
   let attachments = [] as any[];
   if (files && files.length > 0) {
-    const { id, parentReference } = await getSharePointFolderUrl(
-      graphClient,
-      teamId,
-      channelId
-    );
-
     for (let index = 0; index < files.length; index++) {
       const uploadResult = await uploadFileToSharePointList(
         graphClient,
         teamId,
-        parentReference.driveId,
-        id,
+        channelId,
         files[index]
       );
       if (!uploadResult) continue;
@@ -360,18 +353,11 @@ const replyMessage = async (
 
   let attachments = [] as any[];
   if (files && files.length > 0) {
-    const { id, parentReference } = await getSharePointFolderUrl(
-      graphClient,
-      teamId,
-      channelId
-    );
-
     for (let index = 0; index < files.length; index++) {
       const uploadResult = await uploadFileToSharePointList(
         graphClient,
         teamId,
-        parentReference.driveId,
-        id,
+        channelId,
         files[index]
       );
       if (!uploadResult) continue;
@@ -540,8 +526,7 @@ const getTeamMembers = async (graphClient: Client, teamId: string) => {
 const uploadFileToSharePointList = async (
   graphClient: Client | undefined,
   teamId: string | undefined,
-  driveId: string | undefined,
-  parentId: string | undefined,
+  channelId: string | undefined,
   fileContent: File
 ) => {
   if (!graphClient) {
@@ -550,12 +535,15 @@ const uploadFileToSharePointList = async (
   if (!teamId) {
     throw new Error("No any team be existed.");
   }
-  if (!driveId) {
-    throw new Error("'driveId' is required");
+  if (!channelId) {
+    throw new Error("'channelId' is required");
   }
-  if (!parentId) {
-    throw new Error("'driveId' is required");
-  }
+
+  const { driveId, parentId  } = await getSharePointFolderUrl(
+    graphClient,
+    teamId,
+    channelId
+  );
 
   const fileName =
     fileContent.name ??
@@ -622,17 +610,10 @@ const getSharePointFolderUrl = async (
     .get();
 
   return {
-    id: res.id,
+    parentId: res.id,
+    driveId: res.parentReference.driveId,
     webUrl: res.webUrl,
-    parentReference: res.parentReference,
-  } as {
-    id: string;
-    webUrl: string;
-    parentReference: {
-      driveId: string;
-      driveType: string;
-    };
-  };
+  }
 };
 
 const chunkArray = (array: any[], chunkSize: number): any[][] => {
