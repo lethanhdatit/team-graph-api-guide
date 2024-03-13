@@ -280,6 +280,7 @@ const addMessage = async (
     throw new Error("Posting message require the field 'content'");
   }
 
+  // Upload files to sharepoint
   let attachments = [] as any[];
   if (files && files.length > 0) {
     for (let index = 0; index < files.length; index++) {
@@ -300,6 +301,7 @@ const addMessage = async (
     }
   }
 
+  // Set makers for all files into content
   let suffixAttachments = attachments
     .map((m: any) => `<attachment id="${m.id}"></attachment>`)
     .join("");
@@ -524,21 +526,11 @@ const getTeamMembers = async (graphClient: Client, teamId: string) => {
 };
 
 const uploadFileToSharePointList = async (
-  graphClient: Client | undefined,
-  teamId: string | undefined,
-  channelId: string | undefined,
+  graphClient: Client,
+  teamId: string,
+  channelId: string,
   fileContent: File
 ) => {
-  if (!graphClient) {
-    throw new Error("Graph client was not initialized");
-  }
-  if (!teamId) {
-    throw new Error("No any team be existed.");
-  }
-  if (!channelId) {
-    throw new Error("'channelId' is required");
-  }
-
   const { driveId, parentId  } = await getSharePointFolderUrl(
     graphClient,
     teamId,
@@ -591,20 +583,10 @@ const shareResourceToMembers = async (
 };
 
 const getSharePointFolderUrl = async (
-  graphClient: Client | undefined,
-  teamId: string | undefined,
-  channelId: string | undefined
+  graphClient: Client,
+  teamId: string,
+  channelId: string
 ) => {
-  if (!graphClient) {
-    throw new Error("Graph client was not initialized");
-  }
-  if (!teamId) {
-    throw new Error("No any team be existed.");
-  }
-  if (!channelId) {
-    throw new Error("'channelId' is required");
-  }
-
   const res = await graphClient
     .api(`/teams/${teamId}/channels/${channelId}/filesFolder`)
     .get();
