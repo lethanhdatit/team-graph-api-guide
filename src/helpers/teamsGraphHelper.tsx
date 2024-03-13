@@ -553,14 +553,6 @@ const uploadFileToSharePointList = async (
     .api(`/drives/${driveId}/items/${parentId}:/${fileName}:/content`)
     .put(fileContent);
 
-  await shareResourceToMembers(
-    graphClient,
-    teamId,
-    driveId,
-    parentId,
-    fileName
-  );
-
   return response;
 };
 
@@ -568,11 +560,9 @@ const shareResourceToMembers = async (
   graphClient: Client,
   teamId: string,
   driveId: string,
-  parentId: string,
-  fileName?: string | undefined
+  parentId: string
 ) => {
   const members = await getTeamMembers(graphClient, teamId);
-  console.log(members);
 
   const permission = {
     recipients: members.map((item: any) => ({
@@ -584,10 +574,7 @@ const shareResourceToMembers = async (
     requireSignIn: true,
   };
 
-  let apiEndpoint = `/drives/${driveId}/items/${parentId}`;
-  if (fileName) apiEndpoint += `:/${fileName}`;
-
-  return await graphClient.api(`${apiEndpoint}/invite`).post(permission);
+  return await graphClient.api(`/drives/${driveId}/items/${parentId}/invite`).post(permission);
 };
 
 const getSharePointFolderUrl = async (

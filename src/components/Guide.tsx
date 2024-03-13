@@ -466,7 +466,7 @@ export function Guide() {
                         summaryArrayByKey(m.reactions, "reactionType")
                       )
                     )}
-                    {m.attachments.map((mm: any) => <span><a href={mm.contentUrl}>{mm.name}</a> | </span>)}
+                    {m.attachments.map((mm: any, i: any) => <span key={i}><a href={mm.contentUrl}>{mm.name}</a> | </span>)}
                     :{rawTextHtml(m.body.content)}
                     <ul>
                       {m.replies.map((r: any) => (
@@ -477,7 +477,7 @@ export function Guide() {
                               summaryArrayByKey(r.reactions, "reactionType")
                             )
                           )}
-                          {r.attachments.map((mm: any) => <a href={mm.contentUrl}>{mm.name}</a>)}
+                          {r.attachments.map((mm: any, i: any) => <span key={i}><a href={mm.contentUrl}>{mm.name}</a> | </span>)}
                           :{rawTextHtml(r.body.content)}
                         </li>
                       ))}
