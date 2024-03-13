@@ -294,7 +294,7 @@ const addMessage = async (
         files[index]
       );
       if (!uploadResult) continue;
-
+      console.log(uploadResult)
       attachments.push({
         id: uuidv4(),
         name: uploadResult.name,
@@ -552,6 +552,25 @@ const uploadFileToSharePointList = async (
   return response;
 };
 
+const deleteFileToSharePointList = async (
+  graphClient: Client,
+  teamId: string,
+  channelId: string,
+  fileUploadedId: string,
+) => {
+  const { driveId } = await getSharePointFolderUrl(
+    graphClient,
+    teamId,
+    channelId
+  );
+
+  const response = await graphClient
+    .api(`/drives/${driveId}/items/${fileUploadedId}`)
+    .delete();
+
+  return response;
+};
+
 const shareResourceToMembers = async (
   graphClient: Client,
   teamId: string,
@@ -617,4 +636,5 @@ export {
   getMessages,
   replyMessage,
   setReaction,
+  deleteFileToSharePointList
 };
