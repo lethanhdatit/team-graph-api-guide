@@ -251,12 +251,8 @@ const addMembers = async (
       .post(payload);
   }
 
-  const { driveId, parentId } = await getSharePointFolderUrl(
-    graphClient,
-    teamId,
-    channelId
-  );
-  await shareResourceToMembers(graphClient, teamId, driveId, parentId);
+  // Share sharepoint folder to all members in team
+  await shareResourceToMembers(graphClient, teamId, channelId);
 };
 
 /**
@@ -559,9 +555,14 @@ const uploadFileToSharePointList = async (
 const shareResourceToMembers = async (
   graphClient: Client,
   teamId: string,
-  driveId: string,
-  parentId: string
+  channelId: string,
 ) => {
+  const { driveId, parentId } = await getSharePointFolderUrl(
+    graphClient,
+    teamId,
+    channelId
+  );
+  
   const members = await getTeamMembers(graphClient, teamId);
 
   const permission = {
